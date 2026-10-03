@@ -1,0 +1,16 @@
+CC = gcc
+CFLAGS = -Wall -Wextra -pedantic
+
+SERVER = server_8630
+CLIENT = client_8630
+
+all: $(SERVER) $(CLIENT)
+
+$(SERVER): server_8630.c
+	$(CC) $(CFLAGS) server_8630.c -o $(SERVER)
+
+$(CLIENT): client_8630.c
+	$(CC) $(CFLAGS) client_8630.c -o $(CLIENT)
+
+clean:
+	rm -f $(SERVER) $(CLIENT)
