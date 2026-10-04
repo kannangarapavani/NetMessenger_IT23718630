@@ -4,11 +4,16 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
+#include <pthread.h>
 
 #define PORT 14630
 #define BUFFER_SIZE 1024
 
-int send_all(int sockfd, const char *buffer, size_t length)
+volatile int connected = 1;
+
+int send_all(int sockfd,
+             const char *buffer,
+             size_t length)
 {
     size_t total_sent = 0;
 
@@ -41,7 +46,10 @@ ssize_t read_line(int sockfd,
         char ch;
 
         ssize_t received =
-            recv(sockfd, &ch, 1, 0);
+            recv(sockfd,
+                 &ch,
+                 1,
+                 0);
 
         if (received == 0) {
             return 0;
@@ -65,6 +73,47 @@ ssize_t read_line(int sockfd,
     return (ssize_t)index;
 }
 
+void *receive_messages(void *arg)
+{
+    int sockfd = *((int *)arg);
+
+    char response[BUFFER_SIZE];
+
+    while (connected) {
+
+        ssize_t received =
+            read_line(sockfd,
+                      response,
+                      sizeof(response));
+
+        if (received == 0) {
+            printf("\nServer closed the connection.\n");
+            connected = 0;
+            break;
+        }
+
+        if (received < 0) {
+            connected = 0;
+            break;
+        }
+
+        printf("\n%s\n", response);
+
+        if (strncmp(response,
+                    "OK BYE",
+                    6) == 0) {
+
+            connected = 0;
+            break;
+        }
+
+        printf("> ");
+        fflush(stdout);
+    }
+
+    return NULL;
+}
+
 int main(int argc, char *argv[])
 {
     int sockfd;
@@ -72,7 +121,6 @@ int main(int argc, char *argv[])
     struct sockaddr_in server_addr;
 
     char input[BUFFER_SIZE];
-    char response[BUFFER_SIZE];
 
     if (argc != 2) {
 
@@ -83,9 +131,10 @@ int main(int argc, char *argv[])
         exit(EXIT_FAILURE);
     }
 
-    sockfd = socket(AF_INET,
-                    SOCK_STREAM,
-                    0);
+    sockfd =
+        socket(AF_INET,
+               SOCK_STREAM,
+               0);
 
     if (sockfd < 0) {
         perror("socket");
@@ -125,7 +174,19 @@ int main(int argc, char *argv[])
 
     printf("First command must be: REGISTER <username>\n");
 
-    while (1) {
+    pthread_t receiver_thread;
+
+    if (pthread_create(&receiver_thread,
+                       NULL,
+                       receive_messages,
+                       &sockfd) != 0) {
+
+        perror("pthread_create");
+        close(sockfd);
+        exit(EXIT_FAILURE);
+    }
+
+    while (connected) {
 
         printf("> ");
         fflush(stdout);
@@ -137,16 +198,13 @@ int main(int argc, char *argv[])
             break;
         }
 
-        size_t length = strlen(input);
+        size_t length =
+            strlen(input);
 
         if (length == 0) {
             continue;
         }
 
-        /*
-         * fgets normally includes newline.
-         * Protocol requires newline-terminated commands.
-         */
         if (input[length - 1] != '\n') {
 
             if (length < sizeof(input) - 1) {
@@ -161,35 +219,23 @@ int main(int argc, char *argv[])
                      length) < 0) {
 
             perror("send");
+            connected = 0;
             break;
         }
 
-        ssize_t received =
-            read_line(sockfd,
-                      response,
-                      sizeof(response));
-
-        if (received == 0) {
-
-            printf("Server closed the connection.\n");
-            break;
-        }
-
-        if (received < 0) {
-
-            perror("recv");
-            break;
-        }
-
-        printf("%s\n", response);
-
-        if (strncmp(response,
-                    "OK BYE",
-                    6) == 0) {
+        if (strncmp(input,
+                    "QUIT",
+                    4) == 0) {
 
             break;
         }
     }
+
+    shutdown(sockfd,
+             SHUT_WR);
+
+    pthread_join(receiver_thread,
+                 NULL);
 
     close(sockfd);
 
