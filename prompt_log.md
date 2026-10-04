@@ -40,3 +40,30 @@ I verified important protocol responses, NID values, server port, file storage, 
 
 ### What I Learned
 The AI assistance helped me understand that TCP is a byte stream and does not preserve application message boundaries. I learned why newline-based framing is needed for text commands and why SENDFILE requires the server to count exactly the declared number of bytes. I also improved my understanding of pthread-based concurrency, shared-state protection with mutexes, graceful versus unexpected disconnections, and server-side rate limiting.
+
+## AI Interaction - Presence Notification and Final Regression Fix
+
+### Tool Used
+ChatGPT
+
+### Task
+I reviewed the assignment requirements again and checked whether the implementation notified other connected clients when a user joined or left.
+
+### Assistance Received
+The AI helped identify that the original server implementation did not include the mandatory presence notification behaviour. It suggested adding join and leave notifications and helped me update the server logic.
+
+The implemented notification formats were:
+
+MSG JOIN <username>
+
+MSG LEAVE <username>
+
+After adding this feature, the existing TCP framing test produced a false failure because the new asynchronous presence notification was received before the expected file-transfer acknowledgement. The AI helped explain why the socket read order had changed and assisted in updating the framing test so that it correctly handled the presence message.
+
+### How I Used and Evaluated the Output
+I compiled the updated server using the personalised Makefile and tested the feature with two real clients. When Bob registered, Alice received MSG JOIN bob. When Bob disconnected, Alice received MSG LEAVE bob.
+
+I then re-ran the TCP framing test. The first updated test exposed an ordering issue caused by the new asynchronous message. I corrected the test and ran it again until all framing, invalid-command, and exact-byte file-transfer tests passed.
+
+### What I Learned
+This step showed me that adding a new asynchronous server message can affect the order in which data is received on an existing TCP connection. I also learned the importance of running regression tests after changing protocol-related behaviour instead of assuming previous tests will continue to work unchanged.
