@@ -67,6 +67,7 @@ The implementation supports the following features:
 - TCP framing support
 - Exact file byte counting
 - Per-client rate limiting and basic flood protection
+- User join and leave presence notifications
 
 ---
 
@@ -78,3 +79,13 @@ Format:
 
 ```text
 REGISTER <username>
+
+Presence notifications:
+
+When another user registers:
+
+MSG JOIN <username>
+
+When a registered user disconnects:
+
+MSG LEAVE <username>
