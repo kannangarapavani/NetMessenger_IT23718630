@@ -1,0 +1,11 @@
+# Reflection
+
+During the development of the NetMessenger assignment, I used AI assistance mainly as a guide for understanding the requirements, planning the implementation, identifying possible issues, and checking how to test each feature. I did not use AI as a replacement for running or verifying the program. After each major change, I compiled the code, ran the server and clients, checked the actual outputs, and corrected problems before continuing.
+
+One of the most useful areas of AI assistance was understanding TCP framing. At the beginning, it was not clear to me why one recv() call cannot be assumed to contain one complete command. Through the implementation and testing process, I learned that TCP is a byte-stream protocol, so commands may arrive partially or multiple commands may arrive together. This helped me understand why newline-based framing is used for text commands and why file transfers require exact byte counting.
+
+AI guidance was also useful when implementing concurrency, file transfer, logging, rate limiting, and test cases. However, some generated suggestions still needed to be checked against the assignment requirements and my actual program behaviour. For example, I later identified that the original implementation did not notify other clients when a user joined or left. I verified this by testing with two clients and then added explicit join and leave notifications. This showed me that AI-generated guidance should not be accepted without checking the specification and testing the result.
+
+I also made changes based on practical testing. I tested duplicate usernames, unknown users, room membership errors, file integrity, unexpected disconnects, five simultaneous clients, malformed commands, and TCP framing conditions. When the output was not as expected, I repeated the test and reviewed the implementation instead of assuming the code was correct.
+
+Overall, this assignment improved my understanding of TCP socket programming, POSIX threads, mutexes, client-server communication, file transfer, protocol design, and error handling. It also taught me the importance of incremental development, version control, testing, and critically evaluating AI-assisted suggestions before using them in a final implementation.
