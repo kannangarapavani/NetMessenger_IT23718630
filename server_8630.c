@@ -797,6 +797,73 @@ void broadcast_message(
 
 
 /* =========================================================
+   PRESENCE NOTIFICATIONS
+   ========================================================= */
+
+void notify_presence(
+    int client_index,
+    const char *event)
+{
+    int target_sockets[MAX_CLIENTS];
+    int target_count = 0;
+
+    char username[MAX_USERNAME];
+
+    pthread_mutex_lock(
+        &clients_mutex);
+
+    strncpy(
+        username,
+        clients[client_index].username,
+        sizeof(username) - 1);
+
+    username[
+        sizeof(username) - 1] =
+        '\0';
+
+    for (int i = 0;
+         i < MAX_CLIENTS;
+         i++) {
+
+        if (i != client_index &&
+            clients[i].registered) {
+
+            target_sockets[
+                target_count++] =
+                clients[i].socket_fd;
+        }
+    }
+
+    pthread_mutex_unlock(
+        &clients_mutex);
+
+    char outgoing[BUFFER_SIZE];
+
+    snprintf(
+        outgoing,
+        sizeof(outgoing),
+        "MSG %s %s\n",
+        event,
+        username);
+
+    for (int i = 0;
+         i < target_count;
+         i++) {
+
+        send_all(
+            target_sockets[i],
+            outgoing,
+            strlen(outgoing));
+    }
+
+    write_log(
+        "PRESENCE event=%s username=%s",
+        event,
+        username);
+}
+
+
+/* =========================================================
    PRIVATE MESSAGE
    ========================================================= */
 
@@ -1649,6 +1716,11 @@ void *handle_client(
         "REGISTER username=%s socket=%d",
         registered_username,
         client_fd);
+
+
+    notify_presence(
+        index,
+        "JOIN");
 
 
     /* =====================================================
@@ -2610,6 +2682,14 @@ void *handle_client(
                 registered_username,
                 buffer);
         }
+    }
+
+
+    if (registered_username[0] != '\0') {
+
+        notify_presence(
+            index,
+            "LEAVE");
     }
 
 
