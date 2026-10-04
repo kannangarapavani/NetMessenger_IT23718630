@@ -26,11 +26,9 @@ def test_partial_register():
 
     s.sendall(b"REG")
     time.sleep(0.2)
-
     s.sendall(b"ISTER framinguser\n")
 
     response = recv_line(s)
-
     print("Response:", response)
 
     if response == "OK REGISTERED framinguser NID:7186":
@@ -84,13 +82,11 @@ def test_malformed_command():
     s = socket.create_connection((HOST, PORT))
 
     s.sendall(b"REGISTER malformeduser\n")
-
     print("Register:", recv_line(s))
 
     s.sendall(b"THIS_IS_NOT_VALID\n")
 
     response = recv_line(s)
-
     print("Response:", response)
 
     if response == "ERR 005 INVALID_COMMAND NID:7186":
@@ -101,7 +97,6 @@ def test_malformed_command():
     s.sendall(b"LIST\n")
 
     response = recv_line(s)
-
     print("Health check:", response)
 
     if response.startswith("OK USERS "):
@@ -122,18 +117,23 @@ def test_split_file_bytes():
     receiver = socket.create_connection((HOST, PORT))
 
     sender.sendall(b"REGISTER filesender\n")
-    receiver.sendall(b"REGISTER filereceiver\n")
+    sender_register = recv_line(sender)
+    print("Sender register:", sender_register)
 
-    print("Sender register:", recv_line(sender))
-    print("Receiver register:", recv_line(receiver))
+    receiver.sendall(b"REGISTER filereceiver\n")
+    receiver_register = recv_line(receiver)
+    print("Receiver register:", receiver_register)
+
+    # New presence notification generated for the already
+    # registered sender when filereceiver joins.
+    sender_presence = recv_line(sender)
+    print("Sender presence:", sender_presence)
 
     file_data = b"ABCDE12345"
 
-    header = (
+    sender.sendall(
         b"SENDFILE filereceiver framing.txt 10\n"
     )
-
-    sender.sendall(header)
 
     sender.sendall(file_data[:3])
     time.sleep(0.1)
@@ -143,18 +143,16 @@ def test_split_file_bytes():
 
     sender.sendall(file_data[7:])
 
-    sender_response = recv_line(sender)
-
-    print("Sender response:", sender_response)
-
+    # Receiver gets the file header and exact raw bytes.
     receiver_header = recv_line(receiver)
-
     print("Receiver header:", receiver_header)
 
     received_bytes = b""
 
-    while len(received_bytes) < 10:
-        chunk = receiver.recv(10 - len(received_bytes))
+    while len(received_bytes) < len(file_data):
+        chunk = receiver.recv(
+            len(file_data) - len(received_bytes)
+        )
 
         if not chunk:
             break
@@ -163,22 +161,38 @@ def test_split_file_bytes():
 
     print("Received bytes:", received_bytes)
 
+    # Sender gets acknowledgement after server accepts file.
+    sender_response = recv_line(sender)
+    print("Sender response:", sender_response)
+
     if (
-        sender_response
-        == "OK FILE_RECEIVED framing.txt NID:7186"
+        sender_register
+        == "OK REGISTERED filesender NID:7186"
+        and receiver_register
+        == "OK REGISTERED filereceiver NID:7186"
+        and sender_presence
+        == "MSG JOIN filereceiver"
         and receiver_header
         == "MSG FILE filesender framing.txt 10"
         and received_bytes == file_data
+        and sender_response
+        == "OK FILE_RECEIVED framing.txt NID:7186"
     ):
         print("PASS - Exact file bytes reconstructed correctly")
     else:
         print("FAIL")
 
     sender.sendall(b"QUIT\n")
-    print("Sender quit:", recv_line(sender))
+    sender_quit = recv_line(sender)
+    print("Sender quit:", sender_quit)
+
+    # Receiver receives filesender's leave notification.
+    receiver_presence = recv_line(receiver)
+    print("Receiver presence:", receiver_presence)
 
     receiver.sendall(b"QUIT\n")
-    print("Receiver quit:", recv_line(receiver))
+    receiver_quit = recv_line(receiver)
+    print("Receiver quit:", receiver_quit)
 
     sender.close()
     receiver.close()
