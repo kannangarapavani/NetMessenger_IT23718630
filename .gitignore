@@ -1,0 +1,5 @@
+server_8630
+client_8630
+*.o
+*~
+*.swp
