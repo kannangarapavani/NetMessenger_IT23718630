@@ -29,7 +29,7 @@ The following values were calculated from registration number IT23718630.
 - Makefile: Makefile_8630
 - Log File: netmsg_IT23718630.log
 - Server Storage Path: ./storage/IT23718630/<sender_username>/<filename>
-- Submission Archive: IE3010_IT23718630.zip
+- Submission Archive: IT23718630.zip
 
 ---
 
